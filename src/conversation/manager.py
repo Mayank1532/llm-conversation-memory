@@ -1,32 +1,44 @@
 from src.conversation.context import ContextManager
 from src.llm.local_llm import LocalLLM
+from src.memory.extractor import MemoryExtractor
 from src.memory.store import MemoryStore
 
 
 class ConversationManager:
-    """Manage conversation history, persistent memory, and model context."""
+    """Manage conversation history, memory, and model context."""
 
     def __init__(
         self,
         llm: LocalLLM,
         context_manager: ContextManager,
-        memory_store: MemoryStore,
+        memory_store: MemoryStore | None = None,
+        memory_extractor: MemoryExtractor | None = None,
     ) -> None:
         self.llm = llm
         self.context_manager = context_manager
-        self.memory_store = memory_store
+        self.memory_store = memory_store or MemoryStore()
+        self.memory_extractor = memory_extractor or MemoryExtractor()
         self.messages: list[dict[str, str]] = []
 
     def add_user_message(self, content: str) -> None:
         if not content.strip():
             raise ValueError("User message cannot be empty.")
 
+        cleaned_content = content.strip()
+
         self.messages.append(
             {
                 "role": "user",
-                "content": content.strip(),
+                "content": cleaned_content,
             }
         )
+
+        extracted_memories = self.memory_extractor.extract(
+            cleaned_content
+        )
+
+        for key, value in extracted_memories.items():
+            self.memory_store.remember(key, value)
 
     def add_assistant_message(self, content: str) -> None:
         if not content.strip():
@@ -40,7 +52,7 @@ class ConversationManager:
         )
 
     def get_context(self) -> list[dict[str, str]]:
-        """Return memory plus token-limited conversation history."""
+        """Return the messages that will be sent to the LLM."""
         return self.context_manager.select_messages(
             self.messages,
             memories=self.memory_store.get_all(),
@@ -58,6 +70,10 @@ class ConversationManager:
 
         return response
 
+    def get_history(self) -> list[dict[str, str]]:
+        """Return the complete conversation history."""
+        return list(self.messages)
+
     def remember(self, key: str, value: str) -> None:
         """Store a persistent memory."""
         self.memory_store.remember(key, value)
@@ -69,10 +85,6 @@ class ConversationManager:
     def get_memories(self) -> dict[str, str]:
         """Return all persistent memories."""
         return self.memory_store.get_all()
-
-    def get_history(self) -> list[dict[str, str]]:
-        """Return the complete conversation history."""
-        return list(self.messages)
 
     def reset(self) -> None:
         """Clear conversation history while preserving persistent memory."""
