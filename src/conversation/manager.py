@@ -8,10 +8,10 @@ class ConversationManager:
     def __init__(
         self,
         llm: LocalLLM,
-        context_manager: ContextManager | None = None,
+        context_manager: ContextManager,
     ) -> None:
         self.llm = llm
-        self.context_manager = context_manager or ContextManager()
+        self.context_manager = context_manager
         self.messages: list[dict[str, str]] = []
 
     def add_user_message(self, content: str) -> None:
@@ -46,9 +46,7 @@ class ConversationManager:
                 "Cannot generate a response without a user message."
             )
 
-        context = self.get_context()
-
-        response = self.llm.generate(context)
+        response = self.llm.generate(self.get_context())
 
         self.add_assistant_message(response)
 

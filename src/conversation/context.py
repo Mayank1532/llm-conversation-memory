@@ -1,11 +1,19 @@
+from src.context.token_counter import TokenCounter
+
+
 class ContextManager:
-    """Select the conversation messages sent to the LLM."""
+    """Select conversation messages within a token budget."""
 
-    def __init__(self, max_messages: int = 10) -> None:
-        if max_messages < 1:
-            raise ValueError("max_messages must be at least 1.")
+    def __init__(
+        self,
+        token_counter: TokenCounter,
+        max_tokens: int = 512,
+    ) -> None:
+        if max_tokens < 1:
+            raise ValueError("max_tokens must be at least 1.")
 
-        self.max_messages = max_messages
+        self.token_counter = token_counter
+        self.max_tokens = max_tokens
 
     def select_messages(
         self,
@@ -14,4 +22,17 @@ class ContextManager:
         if not messages:
             return []
 
-        return list(messages[-self.max_messages:])
+        selected: list[dict[str, str]] = []
+
+        for message in reversed(messages):
+            candidate = [message, *reversed(selected)]
+
+            if self.token_counter.count(candidate) > self.max_tokens:
+                if not selected:
+                    return [message]
+
+                break
+
+            selected.insert(0, message)
+
+        return selected
