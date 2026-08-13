@@ -4,7 +4,7 @@ from src.memory.store import MemoryStore
 
 
 class ConversationManager:
-    """Manage conversation history, memory, and model context."""
+    """Manage conversation history, persistent memory, and model context."""
 
     def __init__(
         self,
@@ -40,8 +40,11 @@ class ConversationManager:
         )
 
     def get_context(self) -> list[dict[str, str]]:
-        """Return the messages selected for the LLM."""
-        return self.context_manager.select_messages(self.messages)
+        """Return memory plus token-limited conversation history."""
+        return self.context_manager.select_messages(
+            self.messages,
+            memories=self.memory_store.get_all(),
+        )
 
     def generate_response(self) -> str:
         if not self.messages:
@@ -56,15 +59,15 @@ class ConversationManager:
         return response
 
     def remember(self, key: str, value: str) -> None:
-        """Store an explicit long-term memory."""
+        """Store a persistent memory."""
         self.memory_store.remember(key, value)
 
     def recall(self, key: str) -> str | None:
-        """Retrieve an explicit long-term memory."""
+        """Recall a persistent memory."""
         return self.memory_store.recall(key)
 
     def get_memories(self) -> dict[str, str]:
-        """Return all stored memories."""
+        """Return all persistent memories."""
         return self.memory_store.get_all()
 
     def get_history(self) -> list[dict[str, str]]:
@@ -72,5 +75,5 @@ class ConversationManager:
         return list(self.messages)
 
     def reset(self) -> None:
-        """Clear conversation history but preserve memory."""
+        """Clear conversation history while preserving persistent memory."""
         self.messages.clear()
